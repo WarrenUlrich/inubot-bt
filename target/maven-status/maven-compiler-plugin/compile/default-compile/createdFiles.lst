@@ -1,5 +1,6 @@
 io/warren/shared/ai/bt/Context.class
 io/warren/shared/ai/bt/Status.class
+io/warren/shared/positioning/PositionScorer.class
 io/warren/shared/ai/bt/Sequence.class
 io/warren/shared/ai/bt/Parallel$Policy.class
 io/warren/shared/ai/bt/SuccessRate.class
@@ -11,6 +12,7 @@ io/warren/shared/ai/bt/Parallel.class
 io/warren/shared/ai/bt/Composite.class
 io/warren/shared/ai/bt/Inverter$1.class
 io/warren/shared/ai/bt/BehaviorTree.class
+io/warren/shared/positioning/PositionSearcher.class
 io/warren/shared/ai/bt/Action.class
 io/warren/shared/ai/bt/RetryUntilSuccess.class
 io/warren/shared/ai/bt/Inverter.class
@@ -21,6 +23,7 @@ io/warren/shared/ai/bt/SubTree.class
 io/warren/shared/ai/bt/SleepUntil.class
 io/warren/shared/ai/bt/SleepUntil$Decorator.class
 io/warren/shared/ai/bt/Selector.class
+io/warren/shared/positioning/PositionSearcher$Builder.class
 io/warren/shared/ai/bt/Sleep.class
 io/warren/shared/ai/bt/Repeater.class
 io/warren/shared/script/BehaviorScript.class
