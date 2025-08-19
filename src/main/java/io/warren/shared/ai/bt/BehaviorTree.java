@@ -91,6 +91,10 @@ public class BehaviorTree {
     return new Builder();
   }
 
+  public Node getRoot() {
+    return root;
+  }
+
   /**
    * Executes one tick of the behavior tree.
    * 
@@ -355,50 +359,22 @@ public class BehaviorTree {
       return retry(-1);
     }
 
-    // Add these methods to your Builder class
-
-    /**
-     * Adds a subtree node from another BehaviorTree.
-     * 
-     * @param behaviorTree The behavior tree to use as a subtree
-     * @return This builder for chaining
-     */
-    public Builder subtree(BehaviorTree behaviorTree) {
-      return subtree("SubTree", behaviorTree);
+    public Builder subtree(BehaviorTree tree) {
+      return subtree("SubTree", tree);
     }
 
-    /**
-     * Adds a subtree node from another BehaviorTree with a name.
-     * 
-     * @param name         Name of the subtree
-     * @param behaviorTree The behavior tree to use as a subtree
-     * @return This builder for chaining
-     */
-    public Builder subtree(String name, BehaviorTree behaviorTree) {
-      Node node = new SubTree(name, () -> behaviorTree.root);
+    public Builder subtree(String name, BehaviorTree tree) {
+      Node node = new SubTree(name, () -> tree.root);
       addNode(node);
       return this;
     }
 
-    /**
-     * Adds a subtree node from a BehaviorTree supplier.
-     * 
-     * @param treeSupplier Supplier that creates the BehaviorTree
-     * @return This builder for chaining
-     */
     public Builder subtree(Supplier<BehaviorTree> treeSupplier) {
       return subtree("SubTree", treeSupplier);
     }
 
-    /**
-     * Adds a subtree node from a BehaviorTree supplier with a name.
-     * 
-     * @param name         Name of the subtree
-     * @param treeSupplier Supplier that creates the BehaviorTree
-     * @return This builder for chaining
-     */
     public Builder subtree(String name, Supplier<BehaviorTree> treeSupplier) {
-      Node node = new SubTree(name, () -> treeSupplier.get().root);
+      Node node = new DynamicSubTree(name, treeSupplier);
       addNode(node);
       return this;
     }
