@@ -1,41 +1,28 @@
 package io.warren.shared.ai.bt;
 
-import java.text.MessageFormat;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Stack;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import org.checkerframework.checker.units.qual.min;
 import org.rspeer.commons.logging.Log;
-import org.rspeer.commons.wiki.EquipmentDefinition.Stat;
-import org.rspeer.event.Event;
-import org.rspeer.event.EventDispatcher;
-import org.rspeer.event.Subscribe;
 import org.rspeer.game.ItemCategory;
 import org.rspeer.game.Keyboard;
+import org.rspeer.game.Wilderness;
 import org.rspeer.game.adapter.component.World;
 import org.rspeer.game.adapter.component.inventory.Backpack;
 import org.rspeer.game.adapter.component.inventory.Bank;
-import org.rspeer.game.adapter.component.inventory.Equipment;
 import org.rspeer.game.adapter.component.inventory.Inventory;
 import org.rspeer.game.adapter.scene.Npc;
 import org.rspeer.game.adapter.scene.PathingEntity;
-import org.rspeer.game.adapter.scene.Pickable;
-import org.rspeer.game.adapter.scene.Player;
 import org.rspeer.game.adapter.type.Interactable;
 import org.rspeer.game.adapter.type.SceneNode;
 import org.rspeer.game.combat.Combat;
 import org.rspeer.game.component.Dialog;
 import org.rspeer.game.component.EnterInput;
-import org.rspeer.game.component.Interface;
 import org.rspeer.game.component.Interfaces;
 import org.rspeer.game.component.Inventories;
 import org.rspeer.game.component.Item;
@@ -49,15 +36,14 @@ import org.rspeer.game.component.tdi.Quests;
 import org.rspeer.game.component.tdi.Skill;
 import org.rspeer.game.component.tdi.Skills;
 import org.rspeer.game.component.tdi.Spell;
+import org.rspeer.game.component.tdi.Magic.Autocast.Mode;
 import org.rspeer.game.config.item.entry.FuzzyItemEntry;
 import org.rspeer.game.config.item.entry.InterchangeableItemEntry;
 import org.rspeer.game.config.item.entry.ItemEntry;
-import org.rspeer.game.config.item.entry.builder.ItemEntryBuilder;
 import org.rspeer.game.config.item.loadout.BackpackLoadout;
 import org.rspeer.game.config.item.loadout.EquipmentLoadout;
 import org.rspeer.game.config.item.loadout.InventoryLoadout;
 import org.rspeer.game.effect.Health;
-import org.rspeer.game.event.TickEvent;
 import org.rspeer.game.movement.Movement;
 import org.rspeer.game.movement.pathfinding.Collisions;
 import org.rspeer.game.position.Position;
@@ -67,7 +53,6 @@ import org.rspeer.game.query.component.ItemQuery;
 import org.rspeer.game.query.component.WorldQuery;
 import org.rspeer.game.query.results.ComponentQueryResults;
 import org.rspeer.game.query.results.ItemQueryResults;
-import org.rspeer.game.query.results.WorldQueryResults;
 import org.rspeer.game.scene.Players;
 
 import com.google.common.base.Predicate;
@@ -651,6 +636,18 @@ public class BehaviorTree {
       });
     }
 
+    public Builder autoCasting(Supplier<Spell> spellSupplier) {
+      return condition(() -> {
+        return Magic.Autocast.isSpellSelected(spellSupplier.get());
+      });
+    }
+
+    public Builder autoCast(Mode mode, Supplier<Spell> spellSupplier) {
+      return condition(() -> {
+        return Magic.Autocast.select(mode, spellSupplier.get());
+      });
+    }
+
     public Builder prayerActive(Prayer... prayer) {
       return condition(() -> {
         return Prayers.isActive(prayer);
@@ -829,7 +826,7 @@ public class BehaviorTree {
       });
     }
 
-    public Builder hasLoadout(Supplier<InventoryLoadout> loadoutSupplier) {
+    public Builder hasLoadout(Supplier<InventoryLoadout> loadoutSupplier, boolean strict) {
       return condition(() -> {
         var loadout = loadoutSupplier.get();
         if (loadout == null) {
@@ -837,11 +834,8 @@ public class BehaviorTree {
           return false;
         }
 
-        var missing = loadout.getMissingBackpackEntries()
+        var missing = loadout.getMissingEntries(strict)
             .stream()
-            .filter(entry -> {
-              return loadout.getMissingEquipmentEntries().contains(entry);
-            })
             .collect(Collectors.toList());
 
         missing.forEach(entry -> Log.warn("Missing: " +
@@ -850,13 +844,41 @@ public class BehaviorTree {
       });
     }
 
-    public Builder isLoadoutBagged(Supplier<InventoryLoadout> loadoutSupplier) {
+    public Builder isLoadoutBagged(Supplier<InventoryLoadout> loadoutSupplier, boolean strict) {
       return condition(() -> {
         var loadout = loadoutSupplier.get();
         if (loadout == null)
           return false;
 
-        return loadout.isBackpackValid();
+        return loadout.isBackpackValid(strict);
+      });
+    }
+
+    public Builder isLoadoutBaggedTest(Supplier<InventoryLoadout> loadoutSupplier, boolean strict) {
+      return condition(() -> {
+        var loadout = loadoutSupplier.get();
+        var backpack = Inventories.backpack();
+
+        for (var entry : loadout) {
+          if (!entry.contained(backpack)) {
+            if (entry.isOptional()) {
+              continue;
+            }
+            return false;
+          }
+
+          int count = entry.getContained(backpack)
+              .stream()
+              .mapToInt(Item::getStackSize)
+              .sum();
+
+          int required = strict ? entry.getQuantity() : entry.getMinimumQuantity();
+          if (count < required) {
+            return false;
+          }
+        }
+
+        return true;
       });
     }
 
@@ -1074,6 +1096,11 @@ public class BehaviorTree {
                 if (entry instanceof InterchangeableItemEntry) {
                   var interchangeable = ((InterchangeableItemEntry) entry);
                   return query.names(interchangeable.getNames()).results().first();
+                }
+
+                if (entry instanceof FuzzyItemEntry) {
+                  var fuzzy = ((FuzzyItemEntry) entry);
+                  return fuzzy.getContained(query).first();
                 }
 
                 return query.names(entry.getKey()).results().first();
@@ -1423,11 +1450,11 @@ public class BehaviorTree {
       return condition(Interfaces::closeSubs);
     }
 
-    public Builder worldHop(Function<WorldQuery, WorldQueryResults> worldFunc) {
+    public Builder worldHop(Function<WorldQuery, World> worldFunc) {
       return condition(() -> {
-        var query = Worlds.query();
-        var results = worldFunc.apply(query);
-        return Worlds.hopTo(results.first());
+        var query = Worlds.queryNormal(true);
+        var world = worldFunc.apply(query);
+        return Worlds.hopTo(world);
       });
     }
 
@@ -1500,6 +1527,12 @@ public class BehaviorTree {
     public Builder distanceFrom(Supplier<SceneNode> nodeSupplier, int dist) {
       return condition(() -> {
         return nodeSupplier.get().distance(Players.self()) >= 5;
+      });
+    }
+
+    public Builder wildernessLevel(int level) {
+      return condition(() -> {
+        return Wilderness.getLevel() > level;
       });
     }
   }

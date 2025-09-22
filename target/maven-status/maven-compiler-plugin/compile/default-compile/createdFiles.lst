@@ -4,6 +4,7 @@ io/warren/shared/positioning/PositionScorer.class
 io/warren/shared/ai/bt/Sequence.class
 io/warren/shared/ai/bt/Parallel$Policy.class
 io/warren/shared/ai/bt/SuccessRate.class
+io/warren/shared/paint/PaintUtils.class
 io/warren/shared/ai/bt/SleepWhile.class
 io/warren/shared/ai/bt/Parallel$1.class
 io/warren/shared/ai/bt/RandomSelector.class
@@ -20,7 +21,9 @@ io/warren/shared/ai/bt/BehaviorTree$Builder.class
 io/warren/shared/ai/bt/Cooldown.class
 io/warren/shared/script/BehaviorScript$LoopTask.class
 io/warren/shared/ai/bt/SubTree.class
+io/warren/shared/ai/bt/DynamicSubTree.class
 io/warren/shared/ai/bt/SleepUntil.class
+io/warren/shared/ai/bt/BehaviorModule.class
 io/warren/shared/ai/bt/SleepUntil$Decorator.class
 io/warren/shared/ai/bt/Selector.class
 io/warren/shared/positioning/PositionSearcher$Builder.class
